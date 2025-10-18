@@ -1,0 +1,987 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Estudio de la Cinemática y Dinámica de un robot SCARA con tres grados de libertad\n",
+    "\n",
+    "**Nombre:** Rodriguez Torres Angel Adrian\n",
+    "**Materia:** Robotica\n",
+    "**Grupo:** 1\n",
+    "**Profesor:** M.I. Erik Peña Medina"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Resumen\n",
+    "\n",
+    "Este trabajo estudia el funcionamiento de un robot SCARA con tres eslabones y tres articulaciones rotacionales, uno de los cuales está fijo al sistema de referencia. El objetivo es comprender cómo se relacionan la posición, la orientación y los movimientos de cada articulación con la tarea final que el robot debe realizar. Para ello, primero se desarrolla el modelo cinemático, que permite describir la pose, las velocidades y la aceleración del robot desde su base hasta el efector final.\n",
+    "\n",
+    "Más adelante, se formula el modelo dinámico de esta configuración empleando el método de Euler-Lagrange, tanto en su forma directa como inversa, lo que facilita analizar el comportamiento del sistema desde dos enfoques complementarios. Con esta integración de los modelos cinemáticos y dinámicos se busca no solo describir los movimientos, sino también entender cómo la interacción entre las juntas y los eslabones condiciona la precisión, la eficiencia y la respuesta del robot en la ejecución de sus tareas."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Introducción:\n",
+    "\n",
+    "La robótica moderna depende fundamentalmente de la capacidad para predecir y controlar con precisión el comportamiento de los manipuladores. Para lograr esto, es indispensable desarrollar un \"gemelo digital\", un conjunto de modelos matemáticos que describan fielmente la física del robot. El presente reporte tiene como objetivo principal el desarrollo y la documentación de los modelos cinemático y dinámico de un robot manipulador tipo SCARA de tres grados de libertad. El análisis abarca desde la descripción de la postura y el movimiento del robot hasta las fuerzas necesarias para generarlo.\n",
+    "\n",
+    "Para el modelo cinemático, se emplea la convención de Denavit-Hartenberg y el uso de matrices de transformación homogénea para la cinemática directa, así como el análisis Jacobiano para el estudio de las velocidades. Para el modelo dinámico, se utiliza la formulación de Euler-Lagrange, un método robusto basado en la energía del sistema que permite determinar los torques requeridos en cada articulación.\n",
+    "\n",
+    "El documento se encuentra estructurado de la siguiente manera: las secciones 2, 3 y 4 desarrollan progresivamente el modelo cinemático de la postura, velocidades y aceleraciones. La sección 5 detalla el modelo dinámico. Finalmente, en la sección 6 se presentan las conclusiones del trabajo realizado."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Definición de funciones"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%Deficición de la función de manera simbolica\n",
+    "%syms Tij(x_i_j,y_i_j,z_i_j,gi_j,bi_j,ai_j)\n",
+    "\n",
+    "\n",
+    "%Definición de la transformación homógenea general\n",
+    "%Tij(x_i_j,y_i_j,z_i_j,gi_j,bi_j,ai_j) = [cos(ai_j)*cos(bi_j) cos(ai_j)*sin(bi_j)*sin(gi_j)-sin(ai_j)*cos(gi_j) sin(ai_j)*sin(gi_j)+cos(ai_j)*sin(bi_j)*cos(gi_j) x_i_j; sin(ai_j)*cos(bi_j) cos(ai_j)*cos(gi_j)+sin(ai_j)*sin(bi_j)*sin(gi_j) sin(ai_j)*sin(bi_j)*cos(gi_j)-cos(ai_j)*sin(gi_j) y_i_j; -sin(bi_j) cos(bi_j)*sin(gi_j) cos(bi_j)*cos(gi_j) z_i_j; 0 0 0 1]"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Modelado del robot Scara"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Planteamiento del modelo cinemático de la posición\n",
+    "\n",
+    "El modelo cinemático directo nos permite determinar la posición y orientación del efector final del robot a partir de los valores conocidos de sus ángulos articulares. Para lograr esto, se modela cada eslabón y articulación como un sistema de coordenadas independiente. La relación entre estos sistemas se establece mediante matrices de transformación homogénea (T), las cuales representan la traslación y rotación entre un sistema y el siguiente.\n",
+    "\n",
+    "La matriz de transformación total, que describe la ubicación del efector final con respecto a la base, se obtiene multiplicando secuencialmente las matrices de cada eslabón. A continuación, se presenta el diagrama del robot analizado y el desarrollo del código para obtener este modelo.\n",
+    "\n",
+    "Como este movimiento ocurre dentro de un plano, por ahora no consideramos la posición sobre el eje Z. Nuestro punto de referencia es el eje X, que nos permite observar la rotación que realiza cada eslabón alrededor del eje Z. El eje X se orienta de forma paralela a la longitud del eslabón, lo que facilita describir los cambios en su orientación. Como se mencionó anteriormente, se empleó el modelo de Denavit-Hartenberg. Esta matriz contiene la matriz de orientación, el vector de posicion y la escala del punto que se analiza.\n",
+    "\n",
+    "El modelo cinemático directo nos permite determinar la posición y orientación del efector final del robot a partir de los valores conocidos de sus ángulos articulares. Para lograr esto, se modela cada eslabón y articulación como un sistema de coordenadas independiente. Un principio fundamental en este análisis, especialmente para robots con juntas rotacionales como el SCARA, es la selección de un sistema de referencia que simplifique el problema. Al analizar el movimiento desde un plano perpendicular al eje de rotación, dicho eje se observa como un simple punto. Este lugar geométrico, conocido como el plano de rotación, permite reducir un problema tridimensional a uno bidimensional, facilitando enormemente el cálculo de la posición de cualquier punto del robot. La relación entre los sistemas de coordenadas se establece mediante matrices de transformación homogénea (T), las cuales representan la traslación y rotación entre un sistema y el siguiente."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%syms x_O_1 y_O_1 theta_O_1 L_2 theta_1_2 L_3 theta_2_3 L_1\n",
+    "\n",
+    "%T_O_1 = Tij(x_O_1,y_O_1,0,0,0,theta_O_1)\n",
+    "%T_1_2 = Tij(L_1,0,0,0,0,theta_1_2)\n",
+    "%T_2_3 = Tij(L_2,0,0,0,0,theta_2_3)\n",
+    "\n",
+    "%T_3_P = Tij(L_3,0,0,0,0,0)\n",
+    "\n",
+    "%T_O_P = simplify(T_O_1*T_1_2*T_2_3*T_3_P)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Vector de postura del robot\n",
+    "\n",
+    "Se extrae la información más relevante: la posición del punto P y el ángulo que define su orientación. Se observa que ambos valores dependen de los datos obtenidos previamente, mostrando cómo las uniones influyen en nuestro punto de interés. Estos parámetros conforman el vector de pose.\n",
+    "\n",
+    "En esencia, este proceso permite determinar la posición y orientación del efector final en función de un conjunto específico de variables articulares"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%xi_O_P = [T_O_P(1,4);T_O_P(2,4);theta_O_1+theta_1_2+theta_2_3]"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Modelo Cinemático Inverso\n",
+    "\n",
+    "A diferencia del modelo directo, el modelo cinemático inverso resuelve el problema opuesto: si conocemos la posición (y orientación) deseada del efector final (x, y, φ), ¿qué valores deben tomar los ángulos de las articulaciones (θ₁, θ₂, θ₃) para alcanzar dicha posición?"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%inv(J_theta); % Se comenta o elimina para evitar error de orden"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Este problema es fundamental en la robótica para la planificación de trayectorias. Para un robot SCARA como el analizado, la solución se puede encontrar a través de un método geométrico, analizando la vista superior del robot para resolver los ángulos necesarios mediante trigonometría.\n",
+    "\n",
+    "Para calcular el valor de los ángulos se utilizan las leyes de cosenos, de senos y el teorema de Pitágoras. Se comienza con el cálculo de ay y ax, que son la suma de las proyecciones de los triángulos rectángulos que se forman con theta_0_1 y theta_1_2. Usando matlab"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%a_y=L_1*sin(theta_O_1)+L_2*sin(theta_O_1+theta_1_2)\n",
+    "%a_x = L_1*cos(theta_O_1)+L_2*cos(theta_O_1)+L_2*cos(theta_O_1+theta_1_2)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Utilizando el teorema de Pitágoras, es posible determinar la magnitud del vector R, que representa la distancia entre el sistema 1 y el sistema 2 del triángulo formado por las longitudes de los eslabones. Esta se calcula con la siguiente expresión:\n",
+    "\n",
+    "De la ley de cosenos podemos deducir el ángulo gamma:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%R = sqrt(a_x.^2 + a_y.^2)\n",
+    "%gamma =acos ((R.^2 - L_1.^2)/(-2*L_1*L_2))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Para determinar el valor de θ₁₂, se observa que el ángulo γ está estrechamente relacionado, ya que la suma de ambos ángulos es igual a π. En consecuencia:\n",
+    "\n",
+    "Para determinar la expresión de θ₀₁, es necesario calcular los ángulos α y ψ. El ángulo α se obtiene a partir del triángulo rectángulo formado por los sistemas de coordenadas 1 y 3, que pasa por el sistema 2. Para ello, se emplea la definición del coseno, aplicándola primero en el triángulo menor y posteriormente en el triángulo mayor."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%syms L_1 L_2 theta_O_1 theta_1_2 alfa\n",
+    "\n",
+    "%numerador = L_1 + L_2*cos(theta_1_2);\n",
+    "%denominador = sqrt( (L_1*cos(theta_O_1) + L_2*cos(theta_O_1 + theta_1_2))^2 + (L_1*sin(theta_O_1) + L_2*sin(theta_O_1 + theta_1_2))^2 );\n",
+    "%cos_alfa = numerador / denominador\n",
+    "%. Despejar alfa usando el arcocoseno (acos)\n",
+    "%alfa = acos(cos_alfa)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Para encontrar el ángulo ∅, se aplica el mismo procedimiento utilizando el triángulo formado por los vectores a_x y a_y"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%Phi=atan2(a_y,a_x)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Se emplea la función atan2, ya que permite obtener soluciones en los cuatro cuadrantes del plano cartesiano. Por ello, resulta útil para garantizar que cualquier posición tenga una solución válida. A partir de la imagen de referencia, se observa que el ángulo ψ corresponde a la suma de los ángulos θ₀₁ y α. En consecuencia, se establece la siguiente relación:\n",
+    "\n",
+    "De esta expresión se puede despejar 𝜃_0_1 como:\n",
+    "\n",
+    "Para obtener la expresión de 𝜃_2_3, se sigue un procedimiento similar.\n",
+    "\n",
+    "Se utiliza el teorema de Pitágoras para determinar la longitud del segmento 𝑁\n",
+    "\n",
+    "Posteriormente, se despeja el ángulo χ de la ley de los cosenos. Dado que los ángulos χ, β y θ2,3 forman un ángulo π, se tiene la siguiente relación:\n",
+    "\n",
+    "Para determinar el valor del ángulo 𝜅, se emplea la definición de la tangente:\n",
+    "\n",
+    "Finalmente, considerando la relación entre los ángulos, se tiene:\n",
+    "\n",
+    "Con esto se obtiene la definición completa de cada uno de los ángulos que determinan las articulaciones del robot, lo que permite alcanzar la configuración deseada del punto P dentro del plano de trabajo."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Modelo cinemático directo de las velocidades\n",
+    "\n",
+    "Para analizar las velocidades del robot, se utiliza la matriz Jacobiana (J). Esta matriz es una herramienta matemática fundamental que relaciona las velocidades de las articulaciones (el vector de velocidades angulares de los motores) con las velocidades del efector final (la velocidad lineal y angular de la \"mano\" del robot).\n",
+    "\n",
+    "La relación se describe con la ecuación:\n",
+    "\n",
+    "Donde:\n",
+    "- es el vector de velocidades del efector final.\n",
+    "- es la matriz Jacobiana, que depende de la configuración actual del robot (los ángulos q).\n",
+    "-  es el vector de velocidades de las articulaciones.\n",
+    "\n",
+    "A continuación se presenta el cálculo de la Jacobiana para este robot, así como de su inversa, la cual permite realizar el cálculo cinemático inverso de las velocidades."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%syms J_theta\n",
+    "\n",
+    "%J_theta \n",
+    "%J_theta = jacobian(xi_O_P,[theta_O_1, theta_1_2,theta_2_3])"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Modelo cinemático inverso de las velocidades\n",
+    "\n",
+    "Para obtener las velocidades articulares, se despeja el vector θ˙de la expresión de la cinemática directa de velocidades. Multiplicamos por ambos lados de la igualdad la inversa del jacobiano lo cual permite aislar las velocidades articulares:\n",
+    "\n",
+    "Donde:\n",
+    "• θ˙ es el vector de velocidades articulares.\n",
+    "• x˙ es el vector de velocidad lineal y angular de la pose.\n",
+    "• J−1(θ) es la inversa del Jacobiano.\n",
+    "\n",
+    "Normalmente, cuando el Jacobiano no es una matriz cuadrada —es decir, cuando el número de grados de libertad del robot no coincide con la dimensión del espacio de tareas se recurre al uso de la seudo-inversa para resolver la cinemática inversa de velocidades. Sin embargo, en este caso particular, dado que el Jacobiano es una matriz cuadrada (3×3), es suficiente con calcular su inversa directa para obtener una solución exacta, siempre que el sistema no se encuentre en una configuración singular. Una configuración singular se presenta en determinadas posiciones del robot en las que el efector final pierde uno o más grados de libertad, limitando así su capacidad de movimiento o control en ciertas direcciones del espacio de trabajo."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%inv(J_theta)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Rango de movimiento.\n",
+    "\n",
+    "Otro aspecto importante a considerar es el determinante del Jacobiano, ya que este valor proporciona información relevante sobre el espacio de trabajo del robot SCARA. El determinante refleja la capacidad de movimiento del efector final: cuando su valor se aproxima a cero, el manipulador pierde uno o más grados de libertad, impidiendo su desplazamiento libre en determinadas direcciones dentro del espacio de trabajo."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%d= det(J_theta)\n",
+    "%determinante_J = simplify(d)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Para analizar este comportamiento, se estudian las variables que influyen directamente en el determinante del Jacobiano. Para la elaboración de la gráfica, se fijan las longitudes de los eslabones y se varía el ángulo del que depende el determinante, con el objetivo de observar cómo esta variación afecta la capacidad de movimiento del manipulador. A continuación, se presenta el código empleado para realizar dicho análisis:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "syms theta_1_2 L1 L2\n",
+    "detJ= L1 * L2 * sin(theta_1_2);\n",
+    "f_detJ= matlabFunction(detJ, 'Vars', [theta_1_2, L1, L2]);\n",
+    "\n",
+    "%Rango de valores\n",
+    "theta_1_2_vals = linspace(-pi, pi , 500);\n",
+    "L1_val = 1;\n",
+    "L2_val =1;\n",
+    "\n",
+    "%Evaluar determinante\n",
+    "det_vals = f_detJ(theta_1_2_vals, L1_val, L2_val);\n",
+    "\n",
+    "%Grafica\n",
+    "figure  \n",
+    "plot(theta_1_2_vals, det_vals,'LineWidth',2)\n",
+    "xlabel('\\theta_{1,2} (rad)')\n",
+    "ylabel('Determinante del Jacobiano')\n",
+    "title('Determinante del Jacobiano vs \\theta {1,2}')\n",
+    "grid on\n",
+    "yline(0, '--r', 'Singularidad')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Se observa que, cuando el ángulo θ₁₂ es igual a cero, el determinante del Jacobiano también toma el valor de cero. A medida que el ángulo incrementa hasta π/2 (≈ 1.5708 rad), el determinante alcanza su valor máximo. El valor del determinante está directamente influenciado por las longitudes de los eslabones: cuanto mayores sean dichas longitudes, más amplio será el rango de movimiento del sistema. En el análisis realizado, se consideraron longitudes unitarias con el fin de simplificar el modelo y facilitar la interpretación de los resultados."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Modelo cinemático de las aceleraciones\n",
+    "\n",
+    "El modelo cinemático de las aceleraciones se obtiene al derivar con respecto al tiempo el modelo de velocidades. Este análisis es crucial para el control dinámico del robot, ya que las aceleraciones están directamente relacionadas con las fuerzas y torques que los motores deben generar. La ecuación que relaciona la aceleración del efector final () con las aceleraciones de las articulaciones () es:\n",
+    "\n",
+    "Donde  representa la derivada de la matriz Jacobiana con respecto al tiempo. A continuación, se procederá a calcular esta derivada y a construir el modelo completo."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "% --- CÓDIGO DEFINITIVO PARA J_dot (Regla de la Cadena) ---\n",
+    "\n",
+    "% 1. Definimos las velocidades de las articulaciones como nuevas variables simbólicas\n",
+    "% syms theta_dot_O_1 theta_dot_1_2 theta_dot_2_3 % (Ya definidas)\n",
+    "\n",
+    "% 2. Creamos un vector de variables de articulación (q) y un vector de velocidades (q_dot)\n",
+    "% OJO: q_dot DEBE ser un vector columna (con punto y coma) para que funcione la multiplicación\n",
+    "% q = [theta_O_1, theta_1_2, theta_2_3];\n",
+    "% q_dot = [theta_dot_O_1; theta_dot_1_2; theta_dot_2_3];\n",
+    "\n",
+    "% 3. Calculamos la derivada del Jacobiano (J_dot) usando la regla de la cadena\n",
+    "% J_dot = sym(zeros(size(J_theta)));\n",
+    "% for i = 1:length(q)\n",
+    "%     J_dot = J_dot + diff(J_theta, q(i)) * q_dot(i);\n",
+    "% end\n",
+    "\n",
+    "% Mostramos el resultado final de J_dot\n",
+    "% J_dot;"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Una vez obtenida la derivada del Jacobiano, se procede a derivar también el vector de velocidades articulares para completar el modelo cinemático de las aceleraciones."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%syms theta_ddot_O_1 theta_ddot_1_2 theta_ddot_2_3\n",
+    "%q_ddot = [theta_ddot_O_1; theta_ddot_1_2; theta_ddot_2_3];\n",
+    "%q_ddot"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "De este modo, se construye la expresión total de la aceleración del efector final.\n",
+    "\n",
+    "Donde:  es igual a:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%syms theta_acel_O_1 theta_acel_1_2 theta_acel_2_3 \n",
+    "%syms theta_acel1_O_1 theta_acel1_1_2 theta_acel1_2_3\n",
+    "%dq = [theta_acel_O_1; theta_acel_1_2; theta_acel_2_3];\n",
+    "%ddq = [theta_acel1_O_1; theta_acel1_1_2; theta_acel1_2_3];\n",
+    "\n",
+    "%dJ = sym(zeros(size(J_theta)));\n",
+    "%theta_vec = [theta_O_1; theta_1_2; theta_2_3];\n",
+    "%for i = 1:length(theta_vec)\n",
+    "%    dJ = dJ + diff(J_theta, theta_vec(i)) * dq(i);\n",
+    "%end\n",
+    "\n",
+    "% Modelo cinemático directo de aceleraciones\n",
+    "%ddx = simplify(dJ * dq + J_theta * ddq);\n",
+    "%disp(ddx)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Adicionalmente, el control de la aceleración es indispensable para la planificación de trayectorias suaves y precisas. Al gestionar cómo cambia la velocidad, se evitan movimientos bruscos o \"tirones\" (jerk), lo cual es crítico para la integridad mecánica del manipulador y para la correcta ejecución de tareas delicadas como soldadura o ensamblaje."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Modelo Cinemático Inverso de Aceleraciones\n",
+    "\n",
+    "El modelo inverso se obtiene al despejar la aceleración de las articulaciones () de la ecuación del modelo directo. Este cálculo es esencial para los algoritmos de control que siguen trayectorias precisas.\n",
+    "\n",
+    "La ecuación resultante es:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%syms ddx1 ddx2 ddx3 real\n",
+    "%ddx_vec = [ddx1; ddx2; ddx3];\n",
+    "\n",
+    "%ddq_inv= simplify(pinv(J_theta) * (ddx_vec - dJ * dq));\n",
+    "%disp(ddq_inv)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Todos los componentes de esta ecuación ya han sido calculados simbólicamente en el script: la inversa del Jacobiano () se obtuvo en la sección de velocidades, y la derivada del Jacobiano () se acaba de calcular."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "% --- Código Ilustrativo para el Modelo Cinemático Inverso de Aceleraciones ---\n",
+    "\n",
+    "% 1. Definimos la entrada del problema: la aceleración deseada del efector final.\n",
+    "% Como es una ilustración, lo creamos como un vector simbólico genérico.\n",
+    "%syms x_ddot_deseado y_ddot_deseado theta_ddot_deseado\n",
+    "%x_ddot_in = [x_ddot_deseado; y_ddot_deseado; theta_ddot_deseado];\n",
+    "\n",
+    "% 2. Calculamos la inversa del Jacobiano (J_inv).\n",
+    "%J_inv = inv(J_theta);\n",
+    "\n",
+    "% 3. Implementamos la fórmula de la cinemática inversa de aceleraciones:\n",
+    "% q_ddot = J_inv * (x_ddot_in - J_dot * q_dot)\n",
+    "%q_ddot_calculado = J_inv * (x_ddot_in - J_dot * q_dot);\n",
+    "\n",
+    "% 4. Mostramos el resultado simbólico (será una expresión muy grande).\n",
+    "% Le pedimos a MATLAB que lo simplifique para que sea más legible.\n",
+    "%q_ddot_calculado = simplify(q_ddot_calculado)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Modelo dinámico por ecuaciones de Eüler-Lagrange\n",
+    "\n",
+    "El modelo dinámico describe la relación entre las fuerzas/torques aplicados por los motores y el movimiento resultante del robot, considerando factores como masas e inercias. En este reporte, se utiliza la formulación de Euler-Lagrange, un método basado en la energía del sistema.\n",
+    "\n",
+    "Se calculan la energía cinética (K, por el movimiento) y la energía potencial (U, por la gravedad) de cada eslabón. El Lagrangiano (L = K - U) se utiliza para derivar las ecuaciones de movimiento que definen el torque (τ) requerido en cada articulación para producir un movimiento deseado. Se emplearan las siguientes ecuaciones para el cálculo de la energía cinética:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "syms x_1_C1 theta_dot_O_1\n",
+    "\n",
+    "v_C1_C1 = [0;x_1_C1*theta_dot_O_1;0]\n",
+    "v_O_C1 = [-x_1_C1*sin(theta_O_1)*theta_dot_O_1;x_1_C1*cos(theta_O_1)*theta_dot_O_1;0]\n",
+    "transpose(v_C1_C1)*v_C1_C1\n",
+    "simplify(transpose(v_O_C1)*v_O_C1)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Para calcular el primer término de la energía cinética, correspondiente a la velocidad lineal de los centros de masa de cada eslabón, existen dos métodos válidos. El primero consiste en realizar una propagación de velocidades desde el eslabón base hasta cada eslabón sucesivo. El segundo método consiste en calcular la posición del centro de gravedad de cada eslabón respecto al sistema inercial de coordenadas, y posteriormente derivar dicha posición para obtener la velocidad lineal."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Propagación de velocidades\n",
+    "\n",
+    "Para aplicar el primer método mediante propagación de velocidades, se emplean las siguientes fórmulas: \n",
+    "velocidades angulares:\n",
+    "velocidades lineales:\n",
+    "\n",
+    "Se sacan la matriz de orientación de cada uno de los sistemas colocados en las juntas y se transpone. Estos datos se obtienen de la matriz de trasformaciones de cada junta con respecto al punto inmediato anterior (T_O_1, T_1_2, T_2_3)."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%Para R_O_1\n",
+    "%R_0_1 = [T_O_1(1,1),T_O_1(1,2),T_O_1(1,3);T_O_1(2,1),T_O_1(2,2),T_O_1(2,3);T_O_1(3,1),T_O_1(3,2),T_O_1(3,3)]\n",
+    "%R_1_0 = transpose(R_0_1)\n",
+    "\n",
+    "%Para R_1_2\n",
+    "%R_1_2 = [T_1_2(1,1),T_1_2(1,2),T_1_2(1,3);T_1_2(2,1),T_1_2(2,2),T_1_2(2,3);T_1_2(3,1),T_1_2(3,2),T_1_2(3,3)]\n",
+    "%R_2_1 = transpose(R_1_2)\n",
+    "\n",
+    "%Para R_2_3\n",
+    "%R_2_3 = [T_2_3(1,1),T_2_3(1,2),T_2_3(1,3);T_2_3(2,1),T_2_3(2,2),T_2_3(2,3);T_2_3(3,1),T_2_3(3,2),T_2_3(3,3)]\n",
+    "%R_3_2 = transpose(R_2_3)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Para obtener las velocidades lineales de los centros de masa, es necesario calcular previamente las velocidades angulares de cada eslabón. Esto se logra definiendo un vector unitario que indique la dirección del eje de rotación. En este caso, dado que el movimiento ocurre alrededor del eje Z, se tiene:\n",
+    "\n",
+    "Se utiliza la transpuesta de la matriz de orientación que anteriormente se calculó, la derivada angular correspondiente a cada eslabón y la velocidad angular anterior."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "syms omega_1_1 omega_2_2 omega_3_3\n",
+    "\n",
+    "%Para omega_0_0\n",
+    "omega_O_O=[0;0;0]\n",
+    "n_1_1 = [0;0;1]\n",
+    "\n",
+    "%R_O_1 = [T_O_1(1,1),T_O_1(1,2),T_O_1(1,3);T_O_1(2,1),T_O_1(2,2),T_O_1(2,3);T_O_1(3,1),T_O_1(3,2),T_O_1(3,3)]\n",
+    "%R_1_O = transpose(R_O_1)\n",
+    "\n",
+    "%omega_1_1:\n",
+    "%Ecuación de propagación\n",
+    "%omega_1_1 = R_1_O*omega_O_O+n_1_1*theta_dot_O_1\n",
+    "\n",
+    "%omega_2_2:\n",
+    "%Propagación para el segundo cuerpo\n",
+    "n_2_2 = [0;0;1]\n",
+    "%R_1_2 = [T_1_2(1,1),T_1_2(1,2),T_1_2(1,3);T_1_2(2,1),T_1_2(2,2),T_1_2(2,3);T_1_2(3,1),T_1_2(3,2),T_1_2(3,3)]\n",
+    "%R_2_1 = transpose(R_1_2)\n",
+    "\n",
+    "%Ecuación de propagación\n",
+    "%omega_2_2 = R_2_1*omega_1_1+n_2_2*theta_dot_1_2\n",
+    "\n",
+    "%omega_3_3:\n",
+    "%Propagación para el tercer cuerpo\n",
+    "n_3_3 = [0;0;1]\n",
+    "%R_2_3 = [T_2_3(1,1),T_2_3(1,2),T_2_3(1,3);T_2_3(2,1),T_2_3(2,2),T_2_3(2,3);T_2_3(3,1),T_2_3(3,2),T_2_3(3,3)]\n",
+    "%R_3_2 = transpose(R_2_3)\n",
+    "\n",
+    "%Ecuación de propagación\n",
+    "%omega_3_3=R_3_2*omega_2_2+n_3_3*theta_dot_2_3\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Para la primera parte, la velocidad lineal del sistema uno utilizando la formula está dada por:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "% --- Cálculo de la Velocidad Lineal v_1_1 ---\n",
+    "\n",
+    "% La velocidad lineal de la base del robot (v_O_O) es cero.\n",
+    "v_O_O = [0;0;0];\n",
+    "\n",
+    "% La velocidad angular de la base (omega_O_O) es cero.\n",
+    "% (Asegúrate de que esta línea esté con punto y coma en tu código).\n",
+    "omega_O_O = [0;0;0];\n",
+    "\n",
+    "% El vector de posición desde el origen {O} al origen {1} es cero,\n",
+    "% ya que están en el mismo lugar.\n",
+    "p_O_1 = [0;0;0];\n",
+    "\n",
+    "% Aplicamos la ecuación de propagación de la velocidad lineal:\n",
+    "% v_1_1 = R_1_O * (v_O_O + cross(omega_O_O, p_O_1))\n",
+    "%v_1_1 = R_1_O * (v_O_O + cross(omega_O_O, p_O_1))\n",
+    "\n",
+    "%Para el sistema 2 se tiene:\n",
+    "%v_2_2 = R_2_1*(v_1_1 + cross(omega_1_1,[L1;0;0]))\n",
+    "\n",
+    "%Para el sistema 3:\n",
+    "%V_3_3 = simplify(R_3_2*(v_2_2+cross(omega_2_2,[L2;0;0])))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Para calcular la propagación de velocidades hacia los centros de masa, se emplea la misma formulación utilizada en la propagación entre juntas, considerando adicionalmente que las velocidades angulares en el centro de masa de cada eslabón son iguales a las del sistema de coordenadas asociado a la junta correspondiente. A continuación, se analiza el cálculo para el centro de masa del primer eslabón:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "v_C1_C1 = [0;x_1_C1*theta_dot_O_1;0]\n",
+    "\n",
+    "%Para el centro de masa del segundo:\n",
+    "%v_C2_C2 = ([1, 0, 0; 0, 1, 0; 0, 0, 1]*(v_2_2 + cross(omega_2_2,[x_2_C2; 0; 0])))\n",
+    "\n",
+    "%Para el centro de masa del tercer eslabón:\n",
+    "%v_c3_c3 = ([1,0,0;0,1,0;0,0,1]*(V_3_3+cross(omega_3_3,[x_3_C3;0;0])))\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Para estas velocidades, la matriz de orientación es la matriz identidad debido a que el sistema de la junta no cambia con respecto al del centro de masa."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Cálculo de la posición de los centros de masa\n",
+    "\n",
+    "Para hacerlo con el cálculo de la posición del centro de gravedad, se obtiene primero las trasformadas de cada punto de interés, suponiendo que el centro de masa de cada eslabón se encuentra justo en su punto medio. Se considera que el sistema de referencia asociado al centro de gravedad está orientado de manera idéntica al sistema de coordenadas del eslabón correspondiente."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "syms x_1_C1 x_2_C2 x_3_C3\n",
+    "\n",
+    "%La transformada de C1\n",
+    "%T_1_C1 = Tij(x_1_C1,0,0,0,0,0)\n",
+    "%T_O_C1 = T_O_1*T_1_C1\n",
+    "\n",
+    "%La transformada de C2\n",
+    "%T_2_C2 = Tij(x_2_C2,0,0,0,0,0)\n",
+    "%T_O_C2 = T_O_1*T_1_2*T_2_C2\n",
+    "\n",
+    "%La transformada de C3\n",
+    "%T_3_C3 = Tij(x_3_C3,0,0,0,0,0)\n",
+    "%T_O_C3 = T_O_1*T_1_2*T_2_3*T_3_C3\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Se sacan los datos de la posición de cada trasformación."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%Para P_O_C1\n",
+    "%Vectores de posición\n",
+    "%p_O_C1 = [T_O_C1(1,4);T_O_C1(2,4);T_O_C1(3,4)]\n",
+    "\n",
+    "%Para P_O_C2\n",
+    "%p_O_C2 = simplify([T_O_C2(1,4);T_O_C2(2,4);T_O_C2(3,4)])\n",
+    "\n",
+    "%Para P_O_C3\n",
+    "%p_O_C3 = simplify([T_O_C3(1,4);T_O_C3(2,4);T_O_C3(3,4)])"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Cálculo de las velocidades"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "syms theta_dot_O_1 theta_dot_1_2 theta_dot_2_3\n",
+    "\n",
+    "%Para V_O_C1\n",
+    "%v_O_C1 = diff(p_O_C1,theta_O_1)*theta_dot_O_1+diff(p_O_C1,theta_1_2)*theta_dot_1_2+diff(p_O_C1,theta_2_3)*theta_dot_2_3\n",
+    "\n",
+    "%Para V_O_C2\n",
+    "%v_O_C2 = diff(p_O_C2,theta_O_1)*theta_dot_O_1+diff(p_O_C2,theta_1_2)*theta_dot_1_2+diff(p_O_C2,theta_2_3)*theta_dot_2_3\n",
+    "\n",
+    "%Para V_O_C3\n",
+    "%v_O_C3 = diff(p_O_C3,theta_O_1)*theta_dot_O_1+diff(p_O_C3,theta_1_2)*theta_dot_1_2+diff(p_O_C3,theta_2_3)*theta_dot_2_3"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Cálculo de la velocidades angulares"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "syms omega_1_1 omega_2_2 omega_3_3\n",
+    "\n",
+    "%Propagación para el primer cuerpo\n",
+    "omega_O_O = [0;0;0]\n",
+    "n_1_1 = [0;0;1]\n",
+    "%R_O_1 = [T_O_1(1,1),T_O_1(1,2),T_O_1(1,3);T_O_1(2,1),T_O_1(2,2),T_O_1(2,3);T_O_1(3,1),T_O_1(3,2),T_O_1(3,3)]\n",
+    "%R_1_O = transpose(R_O_1)\n",
+    "\n",
+    "%Ecuación de propagación\n",
+    "%omega_1_1 = R_1_O*omega_O_O+n_1_1*theta_dot_O_1\n",
+    "\n",
+    "%Propagación para el segundo cuerpo\n",
+    "n_2_2 = [0;0;1]\n",
+    "%R_1_2 = [T_1_2(1,1),T_1_2(1,2),T_1_2(1,3);T_1_2(2,1),T_1_2(2,2),T_1_2(2,3);T_1_2(3,1),T_1_2(3,2),T_1_2(3,3)]\n",
+    "%R_2_1 = transpose(R_1_2)\n",
+    "\n",
+    "%Ecuación de propagación\n",
+    "%omega_2_2 = R_2_1*omega_1_1+n_2_2*theta_dot_1_2\n",
+    "\n",
+    "%Propagación para el tercer cuerpo\n",
+    "n_3_3 = [0;0;1]\n",
+    "%R_2_3 = [T_2_3(1,1),T_2_3(1,2),T_2_3(1,3);T_2_3(2,1),T_2_3(2,2),T_2_3(2,3);T_2_3(3,1),T_2_3(3,2),T_2_3(3,3)]\n",
+    "%R_3_2 = transpose(R_2_3)\n",
+    "\n",
+    "%Ecuación de propagación\n",
+    "%omega_3_3 = R_3_2*omega_2_2+n_3_3*theta_dot_2_3"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Defición de los elementos de inercia"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "syms g I_xx1 I_yy1 I_zz1 I_xx2 I_yy2 I_zz2 I_xx3 I_yy3 I_zz3\n",
+    "%vector de gravedad\n",
+    "g_v = [0;-g;0]\n",
+    "\n",
+    "I_C1 = [I_xx1,0,0;0,I_yy1,0;0,0,I_zz1]\n",
+    "I_C2 = [I_xx2,0,0;0,I_yy2,0;0,0,I_zz2]\n",
+    "I_C3 = [I_xx3,0,0;0,I_yy3,0;0,0,I_zz3]"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Cáculo del Lagrangeano"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%syms m_1 m_2 m_3\n",
+    "%energía cinética de cada uno de los cuerpos\n",
+    "\n",
+    "%k_1 = simplify((m_1/2)*transpose(v_O_C1)*v_O_C1+(1/2)*transpose(omega_1_1)*I_C1*omega_1_1)\n",
+    "\n",
+    "%k_2 = simplify((m_2/2)*transpose(v_O_C2)*v_O_C2+(1/2)*transpose(omega_2_2)*I_C2*omega_2_2)\n",
+    "\n",
+    "%k_3 = simplify((m_3/2)*transpose(v_O_C3)*v_O_C3+(1/2)*transpose(omega_3_3)*I_C3*omega_3_3)\n",
+    "\n",
+    "% Cáclulo de la energía potencial de cada cuerpo\n",
+    "%u_1 = -m_1*transpose(p_O_C1)*g_v\n",
+    "%u_2 = -m_2*transpose(p_O_C2)*g_v\n",
+    "%u_3 = -m_3*transpose(p_O_C3)*g_v"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Cálculo del Lagrangeano"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%La = (k_1+k_2+k_3)-(u_1+u_2+u_3)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Cálculo de los pares"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%syms theta_ddot_O_1 theta_ddot_1_2 theta_ddot_2_3\n",
+    "\n",
+    "%D_theta1 = diff(La,theta_dot_O_1);\n",
+    "\n",
+    "% Cálculo de relación\n",
+    "%tao_1 = diff(D_theta1,theta_O_1)*theta_dot_O_1 + diff(D_theta1,theta_1_2)*theta_dot_1_2 + diff(D_theta1,theta_2_3)*theta_dot_2_3 + diff(D_theta1,theta_dot_O_1)*theta_ddot_O_1+ diff(D_theta1,theta_dot_1_2)*theta_ddot_1_2+ diff(D_theta1,theta_dot_2_3)*theta_ddot_2_3-diff(La,theta_O_1);\n",
+    "\n",
+    "%D_theta2 = diff(La,theta_dot_1_2);\n",
+    "%tao_2 = diff(D_theta2,theta_O_1)*theta_dot_O_1 + diff(D_theta2,theta_1_2)*theta_dot_1_2 + diff(D_theta2,theta_2_3)*theta_dot_2_3 + diff(D_theta2,theta_dot_O_1)*theta_ddot_O_1+ diff(D_theta2,theta_dot_1_2)*theta_ddot_1_2+ diff(D_theta2,theta_dot_2_3)*theta_ddot_2_3-diff(La,theta_1_2);\n",
+    "\n",
+    "%D_theta3 = diff(La,theta_dot_2_3);\n",
+    "%tao_3 = diff(D_theta3,theta_O_1)*theta_dot_O_1 + diff(D_theta3,theta_1_2)*theta_dot_1_2 + diff(D_theta3,theta_2_3)*theta_dot_2_3 + diff(D_theta3,theta_dot_O_1)*theta_ddot_O_1+ diff(D_theta3,theta_dot_1_2)*theta_ddot_1_2+ diff(D_theta3,theta_dot_2_3)*theta_ddot_2_3-diff(La,theta_2_3);\n",
+    "\n",
+    "%tao = [tao_1;tao_2;tao_3];"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "% Cálculo de la matriz de inercia\n",
+    "\n",
+    "%M1 = subs(tao,[theta_ddot_O_1,theta_ddot_1_2,theta_ddot_2_3,theta_dot_O_1,theta_dot_1_2,theta_dot_2_3,g],[1,0,0,0,0,0,0]);\n",
+    "%M2 = subs(tao,[theta_ddot_O_1,theta_ddot_1_2,theta_ddot_2_3,theta_dot_O_1,theta_dot_1_2,theta_dot_2_3,g],[0,1,0,0,0,0,0]);\n",
+    "%M3 = subs(tao,[theta_ddot_O_1,theta_ddot_1_2,theta_ddot_2_3,theta_dot_O_1,theta_dot_1_2,theta_dot_2_3,g],[0,0,1,0,0,0,0]);\n",
+    "\n",
+    "%M_theta = collect([M1 M2 M3],[m_1,m_2,m_3]);"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Cálculo del vector de pares de"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%V_theta = subs(tao,[theta_ddot_O_1,theta_ddot_1_2,theta_ddot_2_3,theta_dot_O_1,theta_dot_1_2,theta_dot_2_3,g],[0,0,0,theta_dot_O_1,theta_dot_1_2,theta_dot_2_3,0]);\n",
+    "%G_theta = subs(tao,[theta_ddot_O_1,theta_ddot_1_2,theta_ddot_2_3,theta_dot_O_1,theta_dot_1_2,theta_dot_2_3,g],[0,0,0,0,0,0,g]);"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Cálculo del modelo Dinámico directo\n",
+    "\n",
+    "Para el cálculo del modelo dinámico se obtiene tau de manera simbólica con la matriz de inercia (M_theta) y el vector de pares (V_theta y G_theta)."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%tau = M_theta * [theta_ddot_O_1; theta_ddot_1_2; theta_ddot_2_3] + V_theta + G_theta;\n",
+    "%disp(tau)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Calculo del modelo dinamico inverso"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%Invtheta_ddot = inv(M_theta) * (tau - V_theta - G_theta);\n",
+    "%disp(Invtheta_ddot)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Conclusiones\n",
+    "\n",
+    "Al finalizar este reporte, se ha cumplido con el objetivo principal de desarrollar y documentar de manera integral el modelo matemático de un robot SCARA de tres grados de libertad. Este proceso no solo consistió en la aplicación de fórmulas, sino en la construcción de un verdadero \"gemelo digital\" que nos permite comprender y predecir el comportamiento del robot. A través de este desarrollo, se ha podido constatar que la cinemática y la dinámica son dos caras de la misma moneda. Mientras que la cinemática nos proporciona el \"mapa\" del movimiento del robot, permitiéndonos saber dónde está y cómo llegar a un punto, la dinámica nos da la \"fuerza\" para seguir ese mapa, conectando el movimiento abstracto con la realidad física de los motores, las inercias y la gravedad. Un aprendizaje clave fue entender cómo el Jacobiano y su derivada son el puente fundamental entre la postura y el movimiento a alta velocidad. El desarrollo del modelo dinámico mediante la formulación de Euler-Lagrange resultó ser la etapa más compleja, generando ecuaciones de gran extensión. Esto resalta la importancia y la potencia de las herramientas de cálculo simbólico como MATLAB, sin las cuales el manejo de dicha complejidad sería una tarea prácticamente irrealizable a mano.\n",
+    "\n",
+    "Con este modelo completo, el siguiente paso lógico y fundamental es la simulación. La validación de estos modelos en un entorno virtual permitirá probar trayectorias y estrategias de control de forma segura y eficiente, antes de su implementación en un manipulador físico, cerrando así el ciclo de diseño y análisis en la robótica."
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "MATLAB",
+   "language": "matlab",
+   "name": "matlab"
+  },
+  "language_info": {
+   "file_extension": ".m",
+   "mimetype": "text/x-matlab",
+   "name": "matlab"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
